@@ -1,11 +1,12 @@
 from __future__ import division
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
+from tensorflow.keras import layers, models
 import math
 import numpy as np
 import pprint
-import scipy.misc
+import imageio
 import copy
+from PIL import Image
 
 
 def discriminator(image, options, reuse=False, name="discriminator"):
@@ -151,21 +152,26 @@ def lrelu(x, leak=0.2, name="lrelu"):
 
 """======================== 여기는 모델외 모듈들 .=================================="""
 
-_imread = scipy.misc.imread
+# Image reading function update
+_imread = imageio.imread
 
 def load_test_data(image_path, fine_size=256):
-    img = imread(image_path)
-    img = scipy.misc.imresize(img, [fine_size, fine_size])
-    img = img/127.5 - 1         # -1에서 1사이로 맞추려고.
+    img = _imread(image_path)
+    img = Image.fromarray(img).resize((fine_size, fine_size), Image.BILINEAR)
+    img = np.array(img)
+    img = img / 127.5 - 1
     return img
 
 def load_train_data(image_path, load_size=286, fine_size=256, is_testing=False):
-    img_A = imread(image_path[0])
-    img_B = imread(image_path[1])
+    img_A = imageio.imread(image_path[0])
+    img_B = imageio.imread(image_path[1])
 
     if not is_testing:  # 훈련 중
-        img_A = scipy.misc.imresize(img_A, [load_size, load_size])
-        img_B = scipy.misc.imresize(img_B, [load_size, load_size])
+        img_A = Image.fromarray(img_A).resize((load_size, load_size), Image.BILINEAR)
+        img_B = Image.fromarray(img_B).resize((load_size, load_size), Image.BILINEAR)
+        img_A = np.array(img_A)
+        img_B = np.array(img_B)
+        
         h1 = int(np.ceil(np.random.uniform(1e-2, load_size-fine_size))) # 1에서 load_size-fine_size 사이의 값 하나.
         w1 = int(np.ceil(np.random.uniform(1e-2, load_size-fine_size)))
         img_A = img_A[h1:h1+fine_size, w1:w1+fine_size]         # 이미지를 랜덤하게 컷팅... 
@@ -176,16 +182,18 @@ def load_train_data(image_path, load_size=286, fine_size=256, is_testing=False):
             img_B = np.fliplr(img_B)
 
     else:   # 테스트 중!
-        img_A = scipy.misc.imresize(img_A, [fine_size, fine_size])
-        img_B = scipy.misc.imresize(img_B, [fine_size, fine_size])
+        img_A = Image.fromarray(img_A).resize((fine_size, fine_size), Image.BILINEAR)
+        img_B = Image.fromarray(img_B).resize((fine_size, fine_size), Image.BILINEAR)
+        img_A = np.array(img_A)
+        img_B = np.array(img_B)
 
-    img_A = img_A/127.5 - 1.
-    img_B = img_B/127.5 - 1.
+    img_A = img_A / 127.5 - 1.
+    img_B = img_B / 127.5 - 1.
 
     img_AB = np.concatenate((img_A, img_B), axis=2)
     # img_AB shape: (fine_size, fine_size, input_c_dim + output_c_dim)
     return img_AB
-
+    
 def get_image(image_path, image_size, is_crop=True, resize_w=64, is_grayscale = False):
     return transform(imread(image_path, is_grayscale), image_size, is_crop, resize_w)
 
